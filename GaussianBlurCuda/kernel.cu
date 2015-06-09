@@ -1,121 +1,178 @@
-
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
-
+#include <windows.h>
+#include <time.h>
+#include <cstdlib>
+#include <iostream>
 #include <stdio.h>
 
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
+using namespace std;
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+#define THREADS_PER_BLOCK 3
+FILE*forg = fopen("C:\\Users\\barto_000\\Dysk Google\\polibuda\\CUDA\\GaussianBlurCuda\\Gaussian-Blur-CUDA\\GaussianBlurCuda\\picasso.bmp", "rb");            //Uchwyt do orginalnego pliku
+FILE*fsz = fopen("C:\\Users\\barto_000\\Dysk Google\\polibuda\\CUDA\\GaussianBlurCuda\\Gaussian-Blur-CUDA\\GaussianBlurCuda\\output1.bmp", "wb");                    //Uchwyt do nowego pliku
+struct FileHeader {
+	short bfType;
+	int bfSize;
+	short bfReserved1;
+	short bfReserved2;
+	short bfOffBits;
+};
+FileHeader File;
 
-__global__ void addKernel(int *c, const int *a, const int *b)
-{
-    int i = threadIdx.x;
-    c[i] = a[i] + b[i];
+struct PictureHeader {
+	int biSize;
+	int biWidth;
+	int biHeight;
+	short biPlanes;
+	short biBitCount;
+	int biCompression;
+	int biSizeImage;
+	int biXPelsPerMeter;
+	int biYPelsPerMeter;
+	int biClrUsed;
+	int biClrImportant;
+};
+PictureHeader Picture;
+
+void header(){
+
+	fread(&File.bfType, sizeof(File.bfType), 1, forg);
+	cout << "Typ:" << File.bfType << endl;
+	fread(&File.bfSize, sizeof(File.bfSize), 1, forg);
+	cout << "Rozmiar pliku: " << File.bfSize << " bajtow" << endl;
+
+	fread(&File.bfReserved1, sizeof(File.bfReserved1), 1, forg);
+	cout << "Zarezerwowane1: " << File.bfReserved1 << endl;
+
+	fread(&File.bfReserved2, sizeof(File.bfReserved2), 1, forg);
+	cout << "Zarezerwowane2: " << File.bfReserved2 << endl;
+
+	fread(&File.bfOffBits, sizeof(File.bfOffBits), 1, forg);
+	cout << "Pozycja danych obrazkowych: " << File.bfOffBits << endl;
+
+	printf("\n");
+
+	fseek(forg, 14, SEEK_SET);
+	fread(&Picture.biSize, sizeof(Picture.biSize), 1, forg);
+	cout << "Wielkosc naglowka informacyjnego: " << Picture.biSize << endl;
+
+	fread(&Picture.biWidth, sizeof(Picture.biWidth), 1, forg);
+	cout << "Szerokosc: " << Picture.biWidth << " pikseli " << endl;
+
+	fread(&Picture.biHeight, sizeof(Picture.biHeight), 1, forg);
+	cout << "Wysokosc: " << Picture.biHeight << " pikseli " << endl;
+
+	fread(&Picture.biPlanes, sizeof(Picture.biPlanes), 1, forg);
+	cout << "Liczba platow (zwykle 0): " << Picture.biPlanes << endl;
+
+	fread(&Picture.biBitCount, sizeof(Picture.biBitCount), 1, forg);
+	cout << "Liczba bitow na piksel:  (1, 4, 8, or 24)" << Picture.biBitCount << endl;
+
+	fread(&Picture.biCompression, sizeof(Picture.biCompression), 1, forg);
+	cout << "Kompresja: " << Picture.biCompression << "(0=none, 1=RLE-8, 2=RLE-4)" << endl;
+
+	fread(&Picture.biSizeImage, sizeof(Picture.biSizeImage), 1, forg);
+	cout << "Rozmiar samego rysunku: " << Picture.biSizeImage << endl;
+
+	fread(&Picture.biXPelsPerMeter, sizeof(Picture.biXPelsPerMeter), 1, forg);
+	cout << "Rozdzielczosc pozioma: " << Picture.biXPelsPerMeter << endl;
+
+	fread(&Picture.biYPelsPerMeter, sizeof(Picture.biYPelsPerMeter), 1, forg);
+	cout << "Rozdzielczosc pionowa: " << Picture.biYPelsPerMeter << endl;
+
+	fread(&Picture.biClrUsed, sizeof(Picture.biClrUsed), 1, forg);
+	cout << "Liczba kolorow w palecie: " << Picture.biClrUsed << endl;
+
+	fread(&Picture.biClrImportant, sizeof(Picture.biClrImportant), 1, forg);
+	cout << "Wazne kolory w palecie: " << Picture.biClrImportant << endl;
 }
 
+char z;
+
+__global__ void ReadImage(int *B, int *G, int *R, int bfSize)
+{
+	int index = threadIdx.x + blockIdx.x * THREADS_PER_BLOCK;
+	if (index < bfSize)
+	{
+		B[index] = R[index];
+		G[index] = B[index];
+		R[index] = G[index];
+	}
+
+}
 int main()
 {
-    const int arraySize = 5;
-    const int a[arraySize] = { 1, 2, 3, 4, 5 };
-    const int b[arraySize] = { 10, 20, 30, 40, 50 };
-    int c[arraySize] = { 0 };
+	
+	header();
+	time_t  czas, czas1, czas2, czas3;
+	time_t  start, start1, start2, start3;
+	int ile = 1;
+	long liczba_blokow = Picture.biWidth * Picture.biHeight;
+	int *B, *G, *R;
+	int *d_B, *d_G, *d_R;
+	B = new int[File.bfSize*sizeof(int)];
+	G = new int[File.bfSize*sizeof(int)];
+	R = new int[File.bfSize*sizeof(int)];
 
-    // Add vectors in parallel.
-    cudaError_t cudaStatus = addWithCuda(c, a, b, arraySize);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addWithCuda failed!");
-        return 1;
-    }
+	cudaMalloc(&d_B, File.bfSize*sizeof(int));
+	cudaMalloc(&d_G, File.bfSize*sizeof(int));
+	cudaMalloc(&d_R, File.bfSize*sizeof(int));
 
-    printf("{1,2,3,4,5} + {10,20,30,40,50} = {%d,%d,%d,%d,%d}\n",
-        c[0], c[1], c[2], c[3], c[4]);
+	fseek(forg, 0, SEEK_SET);
+	for (int i = 0; i<File.bfOffBits; i++)
+	{
+		z = fgetc(forg);
+		fprintf(fsz, "%c", z);                   //Utworzenie naglowka nowej Bitmapy
+	}
+	for (int i = File.bfOffBits; i < File.bfSize; i++)
+	{
+		B[i] = fgetc(forg);
+		G[i] = fgetc(forg);
+		R[i] = fgetc(forg);
+	}
+	start = clock();
+	start1 = clock();
 
-    // cudaDeviceReset must be called before exiting in order for profiling and
-    // tracing tools such as Nsight and Visual Profiler to show complete traces.
-    cudaStatus = cudaDeviceReset();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceReset failed!");
-        return 1;
-    }
+	for (unsigned int i = 0; i < ile; i++)
+	{
+		cudaMemcpy(d_B, B, File.bfSize*sizeof(int), cudaMemcpyHostToDevice);
+		cudaMemcpy(d_G, G, File.bfSize*sizeof(int), cudaMemcpyHostToDevice);
+		cudaMemcpy(d_R, R, File.bfSize*sizeof(int), cudaMemcpyHostToDevice);
+	}
 
-    return 0;
-}
+	czas1 = (float(clock() - start1)*CLOCKS_PER_SEC) / 1000;
+	cout << "Przesylanie do CUDA " << dec << czas1 << " milisekund " << endl;
 
-// Helper function for using CUDA to add vectors in parallel.
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size)
-{
-    int *dev_a = 0;
-    int *dev_b = 0;
-    int *dev_c = 0;
-    cudaError_t cudaStatus;
+	start2 = clock();
 
-    // Choose which GPU to run on, change this on a multi-GPU system.
-    cudaStatus = cudaSetDevice(0);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-        goto Error;
-    }
+	for (unsigned int i = 0; i < ile; i++)
+		ReadImage << < liczba_blokow, THREADS_PER_BLOCK >> >(d_B, d_G, d_R, File.bfSize);
 
-    // Allocate GPU buffers for three vectors (two input, one output)    .
-    cudaStatus = cudaMalloc((void**)&dev_c, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
+	czas2 = (float(clock() - start2)*CLOCKS_PER_SEC) / 1000;
+	cout << "Wykonanie funkcji " << dec << czas2 << " milisekund " << endl;
+	start3 = clock();
+	for (unsigned int i = 0; i < ile; i++)
+	{
+		cudaMemcpy(B, d_B, File.bfSize*sizeof(int), cudaMemcpyDeviceToHost);
+		cudaMemcpy(G, d_G, File.bfSize*sizeof(int), cudaMemcpyDeviceToHost);
+		cudaMemcpy(R, d_R, File.bfSize*sizeof(int), cudaMemcpyDeviceToHost);
+	}
+	czas3 = (float(clock() - start3)*CLOCKS_PER_SEC) / 1000;
+	cout << "Powrót z CUDA " << dec << czas3 << " milisekund " << endl;
 
-    cudaStatus = cudaMalloc((void**)&dev_a, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
+	czas = (float(clock() - start)*CLOCKS_PER_SEC) / 1000;
+	cout << "Program wykonywal sie " << dec << czas << " milisekund " << endl;
+	fseek(fsz, 54, SEEK_SET);
+	for (int i = File.bfOffBits; i < File.bfSize; i++)
+	{
+		fprintf(fsz, "%c", (int)(R[i]));
+		fprintf(fsz, "%c", (int)(B[i]));
+		fprintf(fsz, "%c", (int)(G[i]));
+	}
 
-    cudaStatus = cudaMalloc((void**)&dev_b, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
-
-    // Copy input vectors from host memory to GPU buffers.
-    cudaStatus = cudaMemcpy(dev_a, a, size * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
-
-    cudaStatus = cudaMemcpy(dev_b, b, size * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
-
-    // Launch a kernel on the GPU with one thread for each element.
-    addKernel<<<1, size>>>(dev_c, dev_a, dev_b);
-
-    // Check for any errors launching the kernel
-    cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-        goto Error;
-    }
-    
-    // cudaDeviceSynchronize waits for the kernel to finish, and returns
-    // any errors encountered during the launch.
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-        goto Error;
-    }
-
-    // Copy output vector from GPU buffer to host memory.
-    cudaStatus = cudaMemcpy(c, dev_c, size * sizeof(int), cudaMemcpyDeviceToHost);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
-
-Error:
-    cudaFree(dev_c);
-    cudaFree(dev_a);
-    cudaFree(dev_b);
-    
-    return cudaStatus;
+	delete[] B;
+	delete[] G;
+	delete[] R;
+	cudaFree(d_B); cudaFree(d_G); cudaFree(d_R);
+	system("PAUSE");
 }
