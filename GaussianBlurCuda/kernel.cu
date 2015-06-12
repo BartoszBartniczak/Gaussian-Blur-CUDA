@@ -8,7 +8,7 @@ using namespace std;
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-cudaError_t addWithCuda(int *b, int *g, int *r, long size);
+cudaError_t addWithCuda(int *b, int *g, int *r, long size, int width);
 
 FILE*forg = fopen("C:\\Users\\barto_000\\Dysk Google\\polibuda\\CUDA\\GaussianBlurCuda\\Gaussian-Blur-CUDA\\GaussianBlurCuda\\picasso_123.bmp", "rb");            //Uchwyt do orginalnego pliku
 FILE*fsz = fopen("C:\\Users\\barto_000\\Dysk Google\\polibuda\\CUDA\\GaussianBlurCuda\\Gaussian-Blur-CUDA\\GaussianBlurCuda\\output1.bmp", "wb");                    //Uchwyt do nowego pliku
@@ -89,16 +89,43 @@ void header(){
 	//cout << "Wazne kolory w palecie: " << Picture.biClrImportant << endl;
 }
 
-char z;
-
-__global__ void ReadImage(int *B, int *G, int *R, int bfSize)
+__global__ void ReadImage(int *B, int *G, int *R, int numberOfPixels, int width)
 {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index < bfSize)
+
+	if (index < width){ // dolny rzad pikseli
+		return;
+	}
+	if (index > numberOfPixels - width){ //gorny rzad pikseli
+		return;
+	}
+	if (index % width == 0){ //lewa sciana
+		return;
+	}
+	if (index % width == width - 1){ //prawa sciana
+		return;
+	}
+
+	int mask[] = { 1, 2, 1, 2, 4, 2, 1, 2, 1 };
+	int s = 16;
+	
+	if (s != 0 && index < numberOfPixels)
 	{
-		B[index] = 255;// B[index] + 50;
-		G[index] = 255;// G[index] + 50;
-		R[index] = 255;// R[index] + 50;
+		
+
+		int poz_1 = index - width - 1;
+		int poz_2 = index - width;
+		int poz_3 = index - width + 1;
+		int poz_4 = index - 1;
+		int poz_5 = index;
+		int poz_6 = index + 1;
+		int poz_7 = index + width - 1;
+		int poz_8 = index + width;
+		int poz_9 = index + width + 1;
+
+		B[index] =  (int)( ((B[poz_1] * mask[0]) + (B[poz_2] * mask[1]) + (B[poz_3] * mask[2]) + (B[poz_4] * mask[3]) + (B[poz_5] * mask[4]) + (B[poz_6] * mask[5]) + (B[poz_7] * mask[6]) + (B[poz_8] * mask[7]) + (B[poz_9] * mask[8])) /s);
+		G[index] = (int)( ((G[poz_1] * mask[0]) + (G[poz_2] * mask[1]) + (G[poz_3] * mask[2]) + (G[poz_4] * mask[3]) + (G[poz_5] * mask[4]) + (G[poz_6] * mask[5]) + (G[poz_7] * mask[6]) + (G[poz_8] * mask[7]) + (G[poz_9] * mask[8])) /s );
+		R[index] = (int)( ((R[poz_1] * mask[0]) + (R[poz_2] * mask[1]) + (R[poz_3] * mask[2]) + (R[poz_4] * mask[3]) + (R[poz_5] * mask[4]) + (R[poz_6] * mask[5]) + (R[poz_7] * mask[6]) + (R[poz_8] * mask[7]) + (R[poz_9] * mask[8])) /s);
 	}
 
 }
@@ -106,9 +133,9 @@ __global__ void ReadImage(int *B, int *G, int *R, int bfSize)
 int main()
 {
 
-	//ReadBMP("picasso_123.bmp");
-
+	header();
 	char* filename = "picasso_123.bmp";
+	char z;
 
 	int i;
 	FILE* f = fopen(filename, "rb");
@@ -120,13 +147,13 @@ int main()
 	fread(info, sizeof(unsigned char), 54, f); // read the 54-byte header
 
 	// extract image height and width from header
-	int width = *(int*)&info[18];
-	int height = *(int*)&info[22];
+	int width = Picture.biWidth;
+	int height = Picture.biHeight;
 
-	cout << endl;
-	cout << "  Name: " << filename << endl;
-	cout << " Width: " << width << endl;
-	cout << "Height: " << height << endl;
+	//cout << endl;
+	//cout << "  Name: " << filename << endl;
+	//cout << " Width: " << width << endl;
+	//cout << "Height: " << height << endl;
 
 	int row_padded = (width * 3 + 3) & (~3);
 	unsigned char* data = new unsigned char[row_padded];
@@ -140,6 +167,12 @@ int main()
 	G = new int[liczba_pikseli*sizeof(int)];
 	R = new int[liczba_pikseli*sizeof(int)];
 
+	int mask[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+
+	cout << "Maska: " << endl << "[" << mask[0] << "]" << "[" << mask[1] << "]" << "[" << mask[2] << "]" << endl;
+	cout << endl << "[" << mask[3] << "]" << "[" << mask[4] << "]" << "[" << mask[5] << "]" << endl;
+	cout << endl << "[" << mask[6] << "]" << "[" << mask[7] << "]" << "[" << mask[8] << "]" << endl << endl;
+
 	long licznik_pikseli = 0;
 	for (int i = 0; i < height; i++)
 	{
@@ -147,9 +180,9 @@ int main()
 		for (int j = 0; j < width * 3; j += 3)
 		{
 			// Convert (B, G, R) to (R, G, B)
-			tmp = data[j]; 
-			data[j] = data[j + 2]; 
-			data[j + 2] = tmp; 
+			tmp = data[j];
+			data[j] = data[j + 2];
+			data[j + 2] = tmp;
 
 			R[licznik_pikseli] = (int)data[j];
 			G[licznik_pikseli] = (int)data[j + 1];
@@ -162,16 +195,20 @@ int main()
 
 	fclose(f);
 
-	addWithCuda(B, G, R, liczba_pikseli);
+	cudaError_t cudaStatus = addWithCuda(B, G, R, liczba_pikseli, width);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "addWithCuda failed!\n");
+		return 1;
+	}
 
-	cout << "--------------"<<endl;
+	cout << "--------------" << endl;
 
 	for (int i = 0; i < liczba_pikseli; i++){
 		cout << i << ": " << "R: " << R[i] << " G: " << G[i] << " B: " << B[i] << endl;
 	}
 
 
-	for (int i = 0; i<File.bfOffBits; i++)
+	for (int i = 0; i < File.bfOffBits; i++)
 	{
 		z = fgetc(forg);
 		fprintf(fsz, "%c", z);                   //Utworzenie naglowka nowej Bitmapy
@@ -188,10 +225,16 @@ int main()
 	delete[] G;
 	delete[] R;
 
+	cudaStatus = cudaDeviceReset();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaDeviceReset failed!");
+		return 1;
+	}
+
 	//system("PAUSE");
 }
 
-cudaError_t addWithCuda(int *b, int *g, int *r, long size)
+cudaError_t addWithCuda(int *b, int *g, int *r, long size, int width)
 {
 	int *d_B, *d_G, *d_R;
 	cudaError_t cudaStatus;
@@ -242,7 +285,7 @@ cudaError_t addWithCuda(int *b, int *g, int *r, long size)
 	}
 
 	// Launch a kernel on the GPU with one thread for each element.
-	ReadImage << <1, size >> >(d_B, d_G, d_R, size);
+	ReadImage << <1, size >> >(d_B, d_G, d_R, size, width);
 
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
