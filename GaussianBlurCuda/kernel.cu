@@ -212,28 +212,30 @@ int main()
 	int licznik_znakow = 0;
 	for (int i = File.bfOffBits; i < File.bfOffBits+liczba_pikseli; i++) //wczytanie pikseli
 	{
-		B[i] = (int)(fgetc(forg));
+		int index = i - File.bfOffBits;
+
+		B[index] = (int)(fgetc(forg));
 		licznik_znakow++;
 		if (licznik_znakow == 3*width){
 			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
 			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
 			licznik_znakow = 0;
 		}
-		G[i] = (int)(fgetc(forg));
+		G[index] = (int)(fgetc(forg));
 		licznik_znakow++;
 		if (licznik_znakow == 3*width){
 			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
 			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
 			licznik_znakow = 0;
 		}
-		R[i] = (int)(fgetc(forg));
+		R[index] = (int)(fgetc(forg));
 		licznik_znakow++;
 		if (licznik_znakow == 3*width){
 			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
 			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
 			licznik_znakow = 0;
 		}
-		cout << i - File.bfOffBits << ": " << "B: " << B[i] << " G: " << G[i] << " R: " << R[i] << endl;
+		cout << index << ": " << "B: " << B[index] << " G: " << G[index] << " R: " << R[index] << endl;
 	}
 
 	cudaError_t cudaStatus = addWithCuda(B, G, R, liczba_pikseli, width);
@@ -244,9 +246,6 @@ int main()
 
 	cout << "--------------" << endl;
 
-	for (int i = 0; i < liczba_pikseli; i++){
-		//cout << i << ": " << "R: " << R[i] << " G: " << G[i] << " B: " << B[i] << endl;
-	}
 
 
 	for (int i = 0; i < File.bfOffBits; i++)
@@ -255,15 +254,34 @@ int main()
 		fprintf(fsz, "%c", z);                   //Utworzenie naglowka nowej Bitmapy
 	}
 	fseek(fsz, 54, SEEK_SET);
+	licznik_znakow = 0;
 	for (int i = 0; i < liczba_pikseli; i++)
 	{
-		fprintf(fsz, "%c", (int)(B[i]));
-		fprintf(fsz, "%c", (int)(G[i]));
-		fprintf(fsz, "%c", (int)(R[i]));
-	}
 
-	for (int i = File.bfOffBits + liczba_pikseli; i < File.bfSize; i++){
-		fprintf(fsz, "%c", (int)fgetc(forg));
+
+		fprintf(fsz, "%c", (int)(B[i]));
+		licznik_znakow++;
+		if (licznik_znakow == 3 * width){
+			fprintf(fsz, "%c", (int)0);
+			fprintf(fsz, "%c", (int)0);
+			licznik_znakow = 0;
+		}
+		fprintf(fsz, "%c", (int)(G[i]));
+		licznik_znakow++;
+		if (licznik_znakow == 3 * width){
+			fprintf(fsz, "%c", (int)0);
+			fprintf(fsz, "%c", (int)0);
+			licznik_znakow = 0;
+		}
+		fprintf(fsz, "%c", (int)(R[i]));
+		licznik_znakow++;
+		if (licznik_znakow == 3 * width){
+			fprintf(fsz, "%c", (int)0);
+			fprintf(fsz, "%c", (int)0);
+			licznik_znakow = 0;
+		}
+
+		cout << i << ": " << "B: " << B[i] << " G: " << G[i] << " R: " << R[i] << endl;
 	}
 
 	delete[] B;
