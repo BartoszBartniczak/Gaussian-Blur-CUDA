@@ -44,19 +44,19 @@ void header(){
 	cout << "Rozmiar pliku: " << File.bfSize << " bajtow" << endl;
 
 	fread(&File.bfReserved1, sizeof(File.bfReserved1), 1, forg);
-	//cout << "Zarezerwowane1: " << File.bfReserved1 << endl;
+	cout << "Zarezerwowane1: " << File.bfReserved1 << endl;
 
 	fread(&File.bfReserved2, sizeof(File.bfReserved2), 1, forg);
-	//cout << "Zarezerwowane2: " << File.bfReserved2 << endl;
+	cout << "Zarezerwowane2: " << File.bfReserved2 << endl;
 
 	fread(&File.bfOffBits, sizeof(File.bfOffBits), 1, forg);
-	//cout << "Pozycja danych obrazkowych: " << File.bfOffBits << endl;
+	cout << "Pozycja danych obrazkowych: " << File.bfOffBits << endl;
 
-	//printf("\n");
+	printf("\n");
 
 	fseek(forg, 14, SEEK_SET);
 	fread(&Picture.biSize, sizeof(Picture.biSize), 1, forg);
-	//cout << "Wielkosc naglowka informacyjnego: " << Picture.biSize << endl;
+	cout << "Wielkosc naglowka informacyjnego: " << Picture.biSize << endl;
 
 	fread(&Picture.biWidth, sizeof(Picture.biWidth), 1, forg);
 	cout << "Szerokosc: " << Picture.biWidth << " pikseli " << endl;
@@ -65,28 +65,28 @@ void header(){
 	cout << "Wysokosc: " << Picture.biHeight << " pikseli " << endl;
 
 	fread(&Picture.biPlanes, sizeof(Picture.biPlanes), 1, forg);
-	//cout << "Liczba platow (zwykle 0): " << Picture.biPlanes << endl;
+	cout << "Liczba platow (zwykle 0): " << Picture.biPlanes << endl;
 
 	fread(&Picture.biBitCount, sizeof(Picture.biBitCount), 1, forg);
 	cout << "Liczba bitow na piksel:  (1, 4, 8, or 24)" << Picture.biBitCount << endl;
 
 	fread(&Picture.biCompression, sizeof(Picture.biCompression), 1, forg);
-	//cout << "Kompresja: " << Picture.biCompression << "(0=none, 1=RLE-8, 2=RLE-4)" << endl;
+	cout << "Kompresja: " << Picture.biCompression << "(0=none, 1=RLE-8, 2=RLE-4)" << endl;
 
 	fread(&Picture.biSizeImage, sizeof(Picture.biSizeImage), 1, forg);
-	//cout << "Rozmiar samego rysunku: " << Picture.biSizeImage << endl;
+	cout << "Rozmiar samego rysunku: " << Picture.biSizeImage << endl;
 
 	fread(&Picture.biXPelsPerMeter, sizeof(Picture.biXPelsPerMeter), 1, forg);
-	//cout << "Rozdzielczosc pozioma: " << Picture.biXPelsPerMeter << endl;
+	cout << "Rozdzielczosc pozioma: " << Picture.biXPelsPerMeter << endl;
 
 	fread(&Picture.biYPelsPerMeter, sizeof(Picture.biYPelsPerMeter), 1, forg);
-	//cout << "Rozdzielczosc pionowa: " << Picture.biYPelsPerMeter << endl;
+	cout << "Rozdzielczosc pionowa: " << Picture.biYPelsPerMeter << endl;
 
 	fread(&Picture.biClrUsed, sizeof(Picture.biClrUsed), 1, forg);
-	//cout << "Liczba kolorow w palecie: " << Picture.biClrUsed << endl;
+	cout << "Liczba kolorow w palecie: " << Picture.biClrUsed << endl;
 
 	fread(&Picture.biClrImportant, sizeof(Picture.biClrImportant), 1, forg);
-	//cout << "Wazne kolory w palecie: " << Picture.biClrImportant << endl;
+	cout << "Wazne kolory w palecie: " << Picture.biClrImportant << endl;
 }
 
 __global__ void GaussianBlur(int *B, int *G, int *R, int numberOfPixels, int width, int *B_new, int *G_new, int *R_new)
@@ -163,9 +163,6 @@ __global__ void GaussianBlur(int *B, int *G, int *R, int numberOfPixels, int wid
 		return;
 	}
 
-	if (s != 0 )
-	{
-
 
 		int poz_1 = index - width - 1;
 		int poz_2 = index - width;
@@ -180,7 +177,7 @@ __global__ void GaussianBlur(int *B, int *G, int *R, int numberOfPixels, int wid
 		B_new[index] = (int)(((B[poz_1] * mask[0]) + (B[poz_2] * mask[1]) + (B[poz_3] * mask[2]) + (B[poz_4] * mask[3]) + (B[poz_5] * mask[4]) + (B[poz_6] * mask[5]) + (B[poz_7] * mask[6]) + (B[poz_8] * mask[7]) + (B[poz_9] * mask[8])) / s);
 		G_new[index] = (int)(((G[poz_1] * mask[0]) + (G[poz_2] * mask[1]) + (G[poz_3] * mask[2]) + (G[poz_4] * mask[3]) + (G[poz_5] * mask[4]) + (G[poz_6] * mask[5]) + (G[poz_7] * mask[6]) + (G[poz_8] * mask[7]) + (G[poz_9] * mask[8])) / s);
 		R_new[index] = (int)(((R[poz_1] * mask[0]) + (R[poz_2] * mask[1]) + (R[poz_3] * mask[2]) + (R[poz_4] * mask[3]) + (R[poz_5] * mask[4]) + (R[poz_6] * mask[5]) + (R[poz_7] * mask[6]) + (R[poz_8] * mask[7]) + (R[poz_9] * mask[8])) / s);
-	}
+	
 
 }
 
@@ -220,11 +217,12 @@ int main()
 		R[index] = (int)(fgetc(forg));
 		licznik_znakow += 3;
 		if (licznik_znakow == 3 * Picture.biWidth){
-			/*int c =(int) fgetc(forg);
-			cout << "Nadmiarowy znak: " << c << endl;
-			c =(int) fgetc(forg);
-			cout << "Nadmiarowy znak: " << c << endl;
-			licznik_znakow = 0;*/
+			int uzupelnienie_wiersza = 0;
+			//cout << "Uzupelnienie wiersza: " << uzupelnienie_wiersza << endl;
+			for (int i = 0; i < uzupelnienie_wiersza; i++){
+				fgetc(forg);
+			}
+			licznik_znakow = 0;
 		}
 		cout << index << ": " << "B: " << B[index] << " G: " << G[index] << " R: " << R[index] << endl;
 	}
@@ -241,11 +239,11 @@ int main()
 
 
 
-	for (int i = 0; i < File.bfOffBits; i++)
+	/*for (int i = 0; i < File.bfOffBits; i++)
 	{
 		z = fgetc(forg);
 		fprintf(fsz, "%c", z);                   //Utworzenie naglowka nowej Bitmapy
-	}
+	}*/
 	fseek(fsz, 54, SEEK_SET);
 	licznik_znakow = 0;
 	for (int i = 0; i < liczba_pikseli; i++)
@@ -255,9 +253,11 @@ int main()
 		fprintf(fsz, "%c", (int)(R[i]));
 		licznik_znakow += 3;
 		if (licznik_znakow == 3 * Picture.biWidth){
-			/*fprintf(fsz, "%c", (int)0);
-			fprintf(fsz, "%c", (int)0);
-			licznik_znakow = 0;*/
+			int uzupelnienie_wiersza = 0;
+			for (int i = 0; i < uzupelnienie_wiersza; i++){
+				fprintf(fsz, "%c", (int)0);
+			}
+			licznik_znakow = 0;
 		}
 
 		cout << i << ": " << "B: " << B[i] << " G: " << G[i] << " R: " << R[i] << endl;
