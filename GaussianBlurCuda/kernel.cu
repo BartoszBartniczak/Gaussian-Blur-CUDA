@@ -8,7 +8,7 @@ using namespace std;
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-cudaError_t addWithCuda(int *b, int *g, int *r, long size, int width);
+cudaError_t GaussianBlurWithCuda(int *b, int *g, int *r, long size, int width);
 
 FILE*forg = fopen("C:\\Users\\barto_000\\Dysk Google\\polibuda\\CUDA\\GaussianBlurCuda\\Gaussian-Blur-CUDA\\GaussianBlurCuda\\picasso_123.bmp", "rb");            //Uchwyt do orginalnego pliku
 FILE*fsz = fopen("C:\\Users\\barto_000\\Dysk Google\\polibuda\\CUDA\\GaussianBlurCuda\\Gaussian-Blur-CUDA\\GaussianBlurCuda\\output1.bmp", "wb");                    //Uchwyt do nowego pliku
@@ -89,11 +89,30 @@ void header(){
 	//cout << "Wazne kolory w palecie: " << Picture.biClrImportant << endl;
 }
 
-__global__ void ReadImage(int *B, int *G, int *R, int numberOfPixels, int width, int *B_new, int *G_new, int *R_new)
+__global__ void GaussianBlur(int *B, int *G, int *R, int numberOfPixels, int width, int *B_new, int *G_new, int *R_new)
 {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	
+	int mask[] = { 1, 2, 1, 2, 4, 2, 1, 2, 1 };
+	int s = mask[0] + mask[1] + mask[2] + mask[3] + mask[4] + mask[5] + mask[6] + mask[7] + mask[8];
 
 	if (index < width){ // dolny rzad pikseli
+		if (index == 0){ //lewy dolny rog
+			s = mask[4] + mask[1] + mask[2] + mask[5];
+			B_new[index] = (int)((B[index] * mask[4] + B[index + width] * mask[1] + B[index + width + 1] * mask[2] + B[index + 1] * mask[5]) / s);
+			G_new[index] = (int)((G[index] * mask[4] + G[index + width] * mask[1] + G[index + width + 1] * mask[2] + G[index + 1] * mask[5]) / s);
+			R_new[index] = (int)((R[index] * mask[4] + R[index + width] * mask[1] + R[index + width + 1] * mask[2] + R[index + 1] * mask[5]) / s);
+			return;
+		}
+
+		if (index == width - 1){//prawy dolny rog
+			s = mask[4] + mask[0] + mask[1] + mask[3];
+			B_new[index] = (B[index] * mask[4] + B[index + width - 1] * mask[0] + B[index + width] * mask[1] + B[index - 1] * mask[3]);
+			G_new[index] = (G[index] * mask[4] + G[index + width - 1] * mask[0] + G[index + width] * mask[1] + G[index - 1] * mask[3]);
+			R_new[index] = (R[index] * mask[4] + R[index + width - 1] * mask[0] + R[index + width] * mask[1] + R[index - 1] * mask[3]);
+			return;
+		}
+
 		B_new[index] = B[index];
 		G_new[index] = G[index];
 		R_new[index] = R[index];
@@ -117,9 +136,6 @@ __global__ void ReadImage(int *B, int *G, int *R, int numberOfPixels, int width,
 		R_new[index] = R[index];
 		return;
 	}
-
-	int mask[] = { 1, 2, 1, 2, 4, 2, 1, 2, 1 };
-	int s = 16;
 	
 	if (s != 0 && index < numberOfPixels)
 	{
@@ -146,61 +162,20 @@ int main()
 {
 
 	header();
-	char* filename = "picasso_123.bmp";
+
 	char z;
 
-	int i;
-	FILE* f = fopen(filename, "rb");
-
-	if (f == NULL)
-		throw "Argument Exception";
-
-	unsigned char info[54];
-	fread(info, sizeof(unsigned char), 54, f); // read the 54-byte header
-
-	// extract image height and width from header
-	int width = Picture.biWidth;
-	int height = Picture.biHeight;
-
-	//cout << endl;
-	//cout << "  Name: " << filename << endl;
-	//cout << " Width: " << width << endl;
-	//cout << "Height: " << height << endl;
-
-	int row_padded = (width * 3 + 3) & (~3);
-	unsigned char* data = new unsigned char[row_padded];
-	unsigned char tmp;
+	int i;	
 
 	// deklaracja zmiennych
 	int *B, *G, *R;
-	long liczba_pikseli = width*height;
+	long liczba_pikseli = Picture.biWidth*Picture.biHeight;
 
 	B = new int[liczba_pikseli*sizeof(int)];
 	G = new int[liczba_pikseli*sizeof(int)];
 	R = new int[liczba_pikseli*sizeof(int)];
 
-	/*long licznik_pikseli = 0;
-	for (int i = 0; i < height; i++)
-	{
-		fread(data, sizeof(unsigned char), row_padded, f);
-		for (int j = 0; j < width * 3; j += 3)
-		{
-			// Convert (B, G, R) to (R, G, B)
-			tmp = data[j];
-			data[j] = data[j + 2];
-			data[j + 2] = tmp;
-
-			R[licznik_pikseli] = (int)data[j];
-			G[licznik_pikseli] = (int)data[j + 1];
-			B[licznik_pikseli] = (int)data[j + 2];
-
-			//cout << licznik_pikseli << ": " << "R: " << R[licznik_pikseli] << " G: " << G[licznik_pikseli] << " B: " << B[licznik_pikseli] << endl;
-			licznik_pikseli++;
-		}
-	}
-
-	fclose(f);*/
-
+	
 	cout << "--------------" << endl;
 	fseek(forg, 0, SEEK_SET);
 	for (int i = 0; i<File.bfOffBits; i++)
@@ -215,30 +190,18 @@ int main()
 		int index = i - File.bfOffBits;
 
 		B[index] = (int)(fgetc(forg));
-		licznik_znakow++;
-		if (licznik_znakow == 3*width){
-			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
-			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
-			licznik_znakow = 0;
-		}
 		G[index] = (int)(fgetc(forg));
-		licznik_znakow++;
-		if (licznik_znakow == 3*width){
-			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
-			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
-			licznik_znakow = 0;
-		}
 		R[index] = (int)(fgetc(forg));
-		licznik_znakow++;
-		if (licznik_znakow == 3*width){
-			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
-			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
+		licznik_znakow +=3;
+		if (licznik_znakow == 3*Picture.biWidth){
+			fgetc(forg);
+			fgetc(forg);
 			licznik_znakow = 0;
 		}
-		cout << index << ": " << "B: " << B[index] << " G: " << G[index] << " R: " << R[index] << endl;
+		//cout << index << ": " << "B: " << B[index] << " G: " << G[index] << " R: " << R[index] << endl;
 	}
 
-	cudaError_t cudaStatus = addWithCuda(B, G, R, liczba_pikseli, width);
+	cudaError_t cudaStatus = GaussianBlurWithCuda(B, G, R, liczba_pikseli, Picture.biWidth);
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "addWithCuda failed!\n");
 		return 1;
@@ -257,31 +220,17 @@ int main()
 	licznik_znakow = 0;
 	for (int i = 0; i < liczba_pikseli; i++)
 	{
-
-
 		fprintf(fsz, "%c", (int)(B[i]));
-		licznik_znakow++;
-		if (licznik_znakow == 3 * width){
-			fprintf(fsz, "%c", (int)0);
-			fprintf(fsz, "%c", (int)0);
-			licznik_znakow = 0;
-		}
 		fprintf(fsz, "%c", (int)(G[i]));
-		licznik_znakow++;
-		if (licznik_znakow == 3 * width){
-			fprintf(fsz, "%c", (int)0);
-			fprintf(fsz, "%c", (int)0);
-			licznik_znakow = 0;
-		}
 		fprintf(fsz, "%c", (int)(R[i]));
-		licznik_znakow++;
-		if (licznik_znakow == 3 * width){
+		licznik_znakow += 3;
+		if (licznik_znakow == 3 * Picture.biWidth){
 			fprintf(fsz, "%c", (int)0);
 			fprintf(fsz, "%c", (int)0);
 			licznik_znakow = 0;
 		}
 
-		cout << i << ": " << "B: " << B[i] << " G: " << G[i] << " R: " << R[i] << endl;
+		//cout << i << ": " << "B: " << B[i] << " G: " << G[i] << " R: " << R[i] << endl;
 	}
 
 	delete[] B;
@@ -297,7 +246,7 @@ int main()
 	//system("PAUSE");
 }
 
-cudaError_t addWithCuda(int *b, int *g, int *r, long size, int width)
+cudaError_t GaussianBlurWithCuda(int *b, int *g, int *r, long size, int width)
 {
 	int *d_B, *d_G, *d_R;
 	int *d_B_new, *d_G_new, *d_R_new;
@@ -367,7 +316,7 @@ cudaError_t addWithCuda(int *b, int *g, int *r, long size, int width)
 	}
 
 	// Launch a kernel on the GPU with one thread for each element.
-	ReadImage << <1, size >> >(d_B, d_G, d_R, size, width, d_B_new, d_G_new, d_R_new);
+	GaussianBlur << <1, size >> >(d_B, d_G, d_R, size, width, d_B_new, d_G_new, d_R_new);
 
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
@@ -407,6 +356,10 @@ Error:
 	cudaFree(d_B);
 	cudaFree(d_G);
 	cudaFree(d_R);
+
+	cudaFree(d_B_new);
+	cudaFree(d_G_new);
+	cudaFree(d_R_new);
 
 	return cudaStatus;
 }
