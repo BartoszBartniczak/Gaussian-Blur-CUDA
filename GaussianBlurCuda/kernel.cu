@@ -10,7 +10,7 @@ using namespace std;
 
 cudaError_t GaussianBlurWithCuda(int *b, int *g, int *r, long size, int width);
 
-FILE*forg = fopen("C:\\Users\\barto_000\\Dysk Google\\polibuda\\CUDA\\GaussianBlurCuda\\Gaussian-Blur-CUDA\\GaussianBlurCuda\\picasso_123.bmp", "rb");            //Uchwyt do orginalnego pliku
+FILE*forg = fopen("C:\\Users\\barto_000\\Dysk Google\\polibuda\\CUDA\\GaussianBlurCuda\\Gaussian-Blur-CUDA\\GaussianBlurCuda\\picasso_456.bmp", "rb");            //Uchwyt do orginalnego pliku
 FILE*fsz = fopen("C:\\Users\\barto_000\\Dysk Google\\polibuda\\CUDA\\GaussianBlurCuda\\Gaussian-Blur-CUDA\\GaussianBlurCuda\\output1.bmp", "wb");                    //Uchwyt do nowego pliku
 struct FileHeader {
 	short bfType;
@@ -93,6 +93,10 @@ __global__ void GaussianBlur(int *B, int *G, int *R, int numberOfPixels, int wid
 {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 
+	if (index >= numberOfPixels){
+		return;
+	}
+
 	int mask[] = { 1, 2, 1, 2, 4, 2, 1, 2, 1 };
 	int s = mask[0] + mask[1] + mask[2] + mask[3] + mask[4] + mask[5] + mask[6] + mask[7] + mask[8];
 
@@ -159,7 +163,7 @@ __global__ void GaussianBlur(int *B, int *G, int *R, int numberOfPixels, int wid
 		return;
 	}
 
-	if (s != 0 && index < numberOfPixels)
+	if (s != 0 )
 	{
 
 
@@ -216,12 +220,16 @@ int main()
 		R[index] = (int)(fgetc(forg));
 		licznik_znakow += 3;
 		if (licznik_znakow == 3 * Picture.biWidth){
-			fgetc(forg);
-			fgetc(forg);
-			licznik_znakow = 0;
+			/*int c =(int) fgetc(forg);
+			cout << "Nadmiarowy znak: " << c << endl;
+			c =(int) fgetc(forg);
+			cout << "Nadmiarowy znak: " << c << endl;
+			licznik_znakow = 0;*/
 		}
-		//cout << index << ": " << "B: " << B[index] << " G: " << G[index] << " R: " << R[index] << endl;
+		cout << index << ": " << "B: " << B[index] << " G: " << G[index] << " R: " << R[index] << endl;
 	}
+
+	system("pause");
 
 	cudaError_t cudaStatus = GaussianBlurWithCuda(B, G, R, liczba_pikseli, Picture.biWidth);
 	if (cudaStatus != cudaSuccess) {
@@ -247,12 +255,12 @@ int main()
 		fprintf(fsz, "%c", (int)(R[i]));
 		licznik_znakow += 3;
 		if (licznik_znakow == 3 * Picture.biWidth){
+			/*fprintf(fsz, "%c", (int)0);
 			fprintf(fsz, "%c", (int)0);
-			fprintf(fsz, "%c", (int)0);
-			licznik_znakow = 0;
+			licznik_znakow = 0;*/
 		}
 
-		//cout << i << ": " << "B: " << B[i] << " G: " << G[i] << " R: " << R[i] << endl;
+		cout << i << ": " << "B: " << B[i] << " G: " << G[i] << " R: " << R[i] << endl;
 	}
 
 	delete[] B;
@@ -338,7 +346,7 @@ cudaError_t GaussianBlurWithCuda(int *b, int *g, int *r, long size, int width)
 	}
 
 	// Launch a kernel on the GPU with one thread for each element.
-	GaussianBlur << <1, size >> >(d_B, d_G, d_R, size, width, d_B_new, d_G_new, d_R_new);
+	GaussianBlur << <10, 500 >> >(d_B, d_G, d_R, size, width, d_B_new, d_G_new, d_R_new);
 
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
