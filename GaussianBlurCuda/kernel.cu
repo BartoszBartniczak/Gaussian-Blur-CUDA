@@ -68,7 +68,7 @@ void header(){
 	//cout << "Liczba platow (zwykle 0): " << Picture.biPlanes << endl;
 
 	fread(&Picture.biBitCount, sizeof(Picture.biBitCount), 1, forg);
-	//cout << "Liczba bitow na piksel:  (1, 4, 8, or 24)" << Picture.biBitCount << endl;
+	cout << "Liczba bitow na piksel:  (1, 4, 8, or 24)" << Picture.biBitCount << endl;
 
 	fread(&Picture.biCompression, sizeof(Picture.biCompression), 1, forg);
 	//cout << "Kompresja: " << Picture.biCompression << "(0=none, 1=RLE-8, 2=RLE-4)" << endl;
@@ -89,20 +89,32 @@ void header(){
 	//cout << "Wazne kolory w palecie: " << Picture.biClrImportant << endl;
 }
 
-__global__ void ReadImage(int *B, int *G, int *R, int numberOfPixels, int width)
+__global__ void ReadImage(int *B, int *G, int *R, int numberOfPixels, int width, int *B_new, int *G_new, int *R_new)
 {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (index < width){ // dolny rzad pikseli
+		B_new[index] = B[index];
+		G_new[index] = G[index];
+		R_new[index] = R[index];
 		return;
 	}
 	if (index > numberOfPixels - width){ //gorny rzad pikseli
+		B_new[index] = B[index];
+		G_new[index] = G[index];
+		R_new[index] = R[index];
 		return;
 	}
 	if (index % width == 0){ //lewa sciana
+		B_new[index] = B[index];
+		G_new[index] = G[index];
+		R_new[index] = R[index];
 		return;
 	}
 	if (index % width == width - 1){ //prawa sciana
+		B_new[index] = B[index];
+		G_new[index] = G[index];
+		R_new[index] = R[index];
 		return;
 	}
 
@@ -123,9 +135,9 @@ __global__ void ReadImage(int *B, int *G, int *R, int numberOfPixels, int width)
 		int poz_8 = index + width;
 		int poz_9 = index + width + 1;
 
-		B[index] =  (int)( ((B[poz_1] * mask[0]) + (B[poz_2] * mask[1]) + (B[poz_3] * mask[2]) + (B[poz_4] * mask[3]) + (B[poz_5] * mask[4]) + (B[poz_6] * mask[5]) + (B[poz_7] * mask[6]) + (B[poz_8] * mask[7]) + (B[poz_9] * mask[8])) /s);
-		G[index] = (int)( ((G[poz_1] * mask[0]) + (G[poz_2] * mask[1]) + (G[poz_3] * mask[2]) + (G[poz_4] * mask[3]) + (G[poz_5] * mask[4]) + (G[poz_6] * mask[5]) + (G[poz_7] * mask[6]) + (G[poz_8] * mask[7]) + (G[poz_9] * mask[8])) /s );
-		R[index] = (int)( ((R[poz_1] * mask[0]) + (R[poz_2] * mask[1]) + (R[poz_3] * mask[2]) + (R[poz_4] * mask[3]) + (R[poz_5] * mask[4]) + (R[poz_6] * mask[5]) + (R[poz_7] * mask[6]) + (R[poz_8] * mask[7]) + (R[poz_9] * mask[8])) /s);
+		B_new[index] =  (int)( ((B[poz_1] * mask[0]) + (B[poz_2] * mask[1]) + (B[poz_3] * mask[2]) + (B[poz_4] * mask[3]) + (B[poz_5] * mask[4]) + (B[poz_6] * mask[5]) + (B[poz_7] * mask[6]) + (B[poz_8] * mask[7]) + (B[poz_9] * mask[8])) /s);
+		G_new[index] = (int)( ((G[poz_1] * mask[0]) + (G[poz_2] * mask[1]) + (G[poz_3] * mask[2]) + (G[poz_4] * mask[3]) + (G[poz_5] * mask[4]) + (G[poz_6] * mask[5]) + (G[poz_7] * mask[6]) + (G[poz_8] * mask[7]) + (G[poz_9] * mask[8])) /s );
+		R_new[index] = (int)( ((R[poz_1] * mask[0]) + (R[poz_2] * mask[1]) + (R[poz_3] * mask[2]) + (R[poz_4] * mask[3]) + (R[poz_5] * mask[4]) + (R[poz_6] * mask[5]) + (R[poz_7] * mask[6]) + (R[poz_8] * mask[7]) + (R[poz_9] * mask[8])) /s);
 	}
 
 }
@@ -167,13 +179,7 @@ int main()
 	G = new int[liczba_pikseli*sizeof(int)];
 	R = new int[liczba_pikseli*sizeof(int)];
 
-	int mask[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
-
-	cout << "Maska: " << endl << "[" << mask[0] << "]" << "[" << mask[1] << "]" << "[" << mask[2] << "]" << endl;
-	cout << endl << "[" << mask[3] << "]" << "[" << mask[4] << "]" << "[" << mask[5] << "]" << endl;
-	cout << endl << "[" << mask[6] << "]" << "[" << mask[7] << "]" << "[" << mask[8] << "]" << endl << endl;
-
-	long licznik_pikseli = 0;
+	/*long licznik_pikseli = 0;
 	for (int i = 0; i < height; i++)
 	{
 		fread(data, sizeof(unsigned char), row_padded, f);
@@ -188,12 +194,47 @@ int main()
 			G[licznik_pikseli] = (int)data[j + 1];
 			B[licznik_pikseli] = (int)data[j + 2];
 
-			cout << licznik_pikseli << ": " << "R: " << R[licznik_pikseli] << " G: " << G[licznik_pikseli] << " B: " << B[licznik_pikseli] << endl;
+			//cout << licznik_pikseli << ": " << "R: " << R[licznik_pikseli] << " G: " << G[licznik_pikseli] << " B: " << B[licznik_pikseli] << endl;
 			licznik_pikseli++;
 		}
 	}
 
-	fclose(f);
+	fclose(f);*/
+
+	cout << "--------------" << endl;
+	fseek(forg, 0, SEEK_SET);
+	for (int i = 0; i<File.bfOffBits; i++)
+	{
+		z = fgetc(forg);
+		fprintf(fsz, "%c", z);                   //Utworzenie naglowka nowej Bitmapy
+	}
+	
+	int licznik_znakow = 0;
+	for (int i = File.bfOffBits; i < File.bfOffBits+liczba_pikseli; i++) //wczytanie pikseli
+	{
+		B[i] = (int)(fgetc(forg));
+		licznik_znakow++;
+		if (licznik_znakow == 3*width){
+			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
+			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
+			licznik_znakow = 0;
+		}
+		G[i] = (int)(fgetc(forg));
+		licznik_znakow++;
+		if (licznik_znakow == 3*width){
+			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
+			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
+			licznik_znakow = 0;
+		}
+		R[i] = (int)(fgetc(forg));
+		licznik_znakow++;
+		if (licznik_znakow == 3*width){
+			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
+			cout << "znak nadmiarowy: " << (int)fgetc(forg) << endl;
+			licznik_znakow = 0;
+		}
+		cout << i - File.bfOffBits << ": " << "B: " << B[i] << " G: " << G[i] << " R: " << R[i] << endl;
+	}
 
 	cudaError_t cudaStatus = addWithCuda(B, G, R, liczba_pikseli, width);
 	if (cudaStatus != cudaSuccess) {
@@ -204,7 +245,7 @@ int main()
 	cout << "--------------" << endl;
 
 	for (int i = 0; i < liczba_pikseli; i++){
-		cout << i << ": " << "R: " << R[i] << " G: " << G[i] << " B: " << B[i] << endl;
+		//cout << i << ": " << "R: " << R[i] << " G: " << G[i] << " B: " << B[i] << endl;
 	}
 
 
@@ -219,6 +260,10 @@ int main()
 		fprintf(fsz, "%c", (int)(B[i]));
 		fprintf(fsz, "%c", (int)(G[i]));
 		fprintf(fsz, "%c", (int)(R[i]));
+	}
+
+	for (int i = File.bfOffBits + liczba_pikseli; i < File.bfSize; i++){
+		fprintf(fsz, "%c", (int)fgetc(forg));
 	}
 
 	delete[] B;
@@ -237,6 +282,7 @@ int main()
 cudaError_t addWithCuda(int *b, int *g, int *r, long size, int width)
 {
 	int *d_B, *d_G, *d_R;
+	int *d_B_new, *d_G_new, *d_R_new;
 	cudaError_t cudaStatus;
 
 	// Choose which GPU to run on, change this on a multi-GPU system.
@@ -252,8 +298,26 @@ cudaError_t addWithCuda(int *b, int *g, int *r, long size, int width)
 		fprintf(stderr, "cudaMalloc failed!");
 		goto Error;
 	}
+	
+	cudaStatus = cudaMalloc((void**)&d_B_new, size * sizeof(int));
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMalloc failed!");
+		goto Error;
+	}
 
 	cudaStatus = cudaMalloc((void**)&d_G, size * sizeof(int));
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMalloc failed!");
+		goto Error;
+	}
+
+	cudaStatus = cudaMalloc((void**)&d_G_new, size * sizeof(int));
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMalloc failed!");
+		goto Error;
+	}
+
+	cudaStatus = cudaMalloc((void**)&d_R_new, size * sizeof(int));
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMalloc failed!");
 		goto Error;
@@ -285,7 +349,7 @@ cudaError_t addWithCuda(int *b, int *g, int *r, long size, int width)
 	}
 
 	// Launch a kernel on the GPU with one thread for each element.
-	ReadImage << <1, size >> >(d_B, d_G, d_R, size, width);
+	ReadImage << <1, size >> >(d_B, d_G, d_R, size, width, d_B_new, d_G_new, d_R_new);
 
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
@@ -303,19 +367,19 @@ cudaError_t addWithCuda(int *b, int *g, int *r, long size, int width)
 	}
 
 	// Copy output vector from GPU buffer to host memory.
-	cudaStatus = cudaMemcpy(b, d_B, size * sizeof(int), cudaMemcpyDeviceToHost);
+	cudaStatus = cudaMemcpy(b, d_B_new, size * sizeof(int), cudaMemcpyDeviceToHost);
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMemcpy failed!");
 		goto Error;
 	}
 
-	cudaStatus = cudaMemcpy(g, d_G, size * sizeof(int), cudaMemcpyDeviceToHost);
+	cudaStatus = cudaMemcpy(g, d_G_new, size * sizeof(int), cudaMemcpyDeviceToHost);
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMemcpy failed!");
 		goto Error;
 	}
 
-	cudaStatus = cudaMemcpy(r, d_R, size * sizeof(int), cudaMemcpyDeviceToHost);
+	cudaStatus = cudaMemcpy(r, d_R_new, size * sizeof(int), cudaMemcpyDeviceToHost);
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMemcpy failed!");
 		goto Error;
