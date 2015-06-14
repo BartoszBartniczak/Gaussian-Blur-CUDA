@@ -188,8 +188,6 @@ int main()
 
 	char z;
 
-	int i;
-
 	// deklaracja zmiennych
 	int *B, *G, *R;
 	long liczba_pikseli = Picture.biWidth*Picture.biHeight;
@@ -349,7 +347,7 @@ cudaError_t GaussianBlurWithCuda(int *b, int *g, int *r, long size, int width)
 	}
 
 	// Launch a kernel on the GPU with one thread for each element.
-	GaussianBlur << < ceil(size/512) , 512 >> >(d_B, d_G, d_R, size, width, d_B_new, d_G_new, d_R_new);
+	GaussianBlur << < ceil(size/1024) , 1024 >> >(d_B, d_G, d_R, size, width, d_B_new, d_G_new, d_R_new);
 
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
