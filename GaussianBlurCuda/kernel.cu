@@ -10,7 +10,7 @@ using namespace std;
 
 cudaError_t GaussianBlurWithCuda(int *b, int *g, int *r, long size, int width);
 
-FILE*forg = fopen("C:\\Users\\barto_000\\Dysk Google\\polibuda\\CUDA\\GaussianBlurCuda\\Gaussian-Blur-CUDA\\GaussianBlurCuda\\fullHD.bmp", "rb");            //Uchwyt do orginalnego pliku
+FILE*forg = fopen("C:\\Users\\barto_000\\Dysk Google\\polibuda\\CUDA\\GaussianBlurCuda\\Gaussian-Blur-CUDA\\GaussianBlurCuda\\picasso_789.bmp", "rb");            //Uchwyt do orginalnego pliku
 FILE*fsz = fopen("C:\\Users\\barto_000\\Dysk Google\\polibuda\\CUDA\\GaussianBlurCuda\\Gaussian-Blur-CUDA\\GaussianBlurCuda\\output1.bmp", "wb");                    //Uchwyt do nowego pliku
 struct FileHeader {
 	short bfType;
@@ -94,6 +94,7 @@ __global__ void GaussianBlur(int *B, int *G, int *R, int numberOfPixels, int wid
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (index >= numberOfPixels){
+		//printf("%d\n",index);
 		return;
 	}
 
@@ -185,12 +186,15 @@ int main()
 {
 
 	header();
+	
 
 	char z;
 
 	// deklaracja zmiennych
 	int *B, *G, *R;
 	long liczba_pikseli = Picture.biWidth*Picture.biHeight;
+	cout << "Liczba pikseli: " << liczba_pikseli << endl;
+	system("pause");
 
 	B = new int[liczba_pikseli*sizeof(int)];
 	G = new int[liczba_pikseli*sizeof(int)];
@@ -347,7 +351,7 @@ cudaError_t GaussianBlurWithCuda(int *b, int *g, int *r, long size, int width)
 	}
 
 	// Launch a kernel on the GPU with one thread for each element.
-	GaussianBlur << < ceil(size/1024) , 1024 >> >(d_B, d_G, d_R, size, width, d_B_new, d_G_new, d_R_new);
+	GaussianBlur << < (size + 1023) / 1024, 1024 >> >(d_B, d_G, d_R, size, width, d_B_new, d_G_new, d_R_new);
 
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
